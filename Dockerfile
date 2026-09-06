@@ -19,8 +19,7 @@ RUN apt-get update \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.js ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN mkdir -p ./public && npm ci --omit=dev && npm cache clean --force
 EXPOSE 3000
 CMD ["npm", "start", "--", "-p", "3000", "-H", "0.0.0.0"]
