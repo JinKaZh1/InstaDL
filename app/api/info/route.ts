@@ -48,14 +48,29 @@ export async function POST(req: NextRequest) {
 
   try {
     const stdout = await runYtDlp(normalized);
-    const data = JSON.parse(stdout);
+    let data;
+    try {
+      data = JSON.parse(stdout);
+    } catch {
+      return NextResponse.json(
+        { error: "upstream_failed", message: "Instagram returned something unexpected. Try again." },
+        { status: 502 }
+      );
+    }
     const info = normalizeInfo(data);
     if ("code" in info) {
       return NextResponse.json({ error: info.code, message: info.message }, { status: 404 });
     }
     return NextResponse.json(info);
   } catch (e) {
-    const err = classifyYtDlpError(e instanceof Error ? e.message : "");
+    const msg = e instanceof Error ? e.message : "";
+    const err = classifyYtDlpError(msg);
+    if (err.code === "upstream_failed" && /empty media response|empty media|unable to extract/i.test(msg)) {
+      return NextResponse.json(
+        { error: "rate_limited", message: "Instagram blocked this datacenter IP. Try again later or from another network." },
+        { status: 429 }
+      );
+    }
     const status = err.code === "rate_limited" ? 429 : err.code === "not_found_or_private" ? 404 : 502;
     return NextResponse.json({ error: err.code, message: err.message }, { status });
   }
